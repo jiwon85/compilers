@@ -3,12 +3,9 @@
 /*       parser1                                                            */
 /*                                                                          */
 /*                                                                          */
-/*       Group Members:          ID numbers                                 */
+/*       Group Members:          ID number                                  */
 /*                                                                          */
-/*           John Doe            12345678                                   */
-/*           Jane Murphy         23456789                                   */
-/*           Anthony N. Other    12345679                                   */
-/*                                                                          */
+/*           Jiwon Min           14201895                                   */                                
 /*                                                                          */
 /*       Currently just a copy of "smallparser.c".  To create "parser1.c",  */
 /*       modify this source to reflect the CPL grammar.                     */
@@ -65,12 +62,18 @@ PRIVATE TOKEN  CurrentToken;       /*  Parser lookahead token.  Updated by  */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE int  OpenFiles( int argc, char *argv[] );
-PRIVATE void ParseProgram( void );
-PRIVATE void ParseStatement( void );
-PRIVATE void ParseExpression( void );
-PRIVATE void Accept( int code );
-PRIVATE void ReadToEndOfFile( void );
+PRIVATE int  OpenFiles(int argc, char *argv[]);
+
+PRIVATE void ParseProgram(void);
+PRIVATE void ParseDeclarations(void);
+PRIVATE void ParseProcDeclarations(void);
+PRIVATE void ParseBlock(void);
+PRIVATE void ParseParameterList(void);
+PRIVATE void ParseFormalParameter(void);
+PRIVATE void ParseStatement(void);
+
+PRIVATE void Accept(int code);
+PRIVATE void ReadToEndOfFile(void);
 
 
 /*--------------------------------------------------------------------------*/
@@ -84,11 +87,11 @@ PRIVATE void ReadToEndOfFile( void );
 PUBLIC int main ( int argc, char *argv[] )
 {
     if ( OpenFiles( argc, argv ) )  {
-        InitCharProcessor( InputFile, ListFile );
+        InitCharProcessor( InputFile, ListFile);
         CurrentToken = GetToken();
         ParseProgram();
-        fclose( InputFile );
-        fclose( ListFile );
+        fclose( InputFile);
+        fclose( ListFile);
         return  EXIT_SUCCESS;
     }
     else 
@@ -117,69 +120,79 @@ PUBLIC int main ( int argc, char *argv[] )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseProgram( void )
-{
-    Accept( BEGIN );
-    while ( CurrentToken.code == IDENTIFIER )  {
-        ParseStatement();
-        Accept( SEMICOLON );
+PRIVATE void ParseProgram(void) {
+    Accept(PROGRAM);
+    Accept(IDENTIFIER);
+    Accept(SEMICOLON);
+    if(CurrentToken.code == VAR) {
+        ParseDeclarations();
     }
-    Accept( END );
-    Accept( ENDOFPROGRAM );     /* Token "." has name ENDOFPROGRAM          */
+    while (CurrentToken.code == PROCEDURE) {
+        ParseProcDeclarations();
+    }
+    ParseBlock();
+    Accept(ENDOFPROGRAM);     /* Token "." has name ENDOFPROGRAM          */
 }
 
 
-/*--------------------------------------------------------------------------*/
-/*                                                                          */
-/*  ParseStatement implements:                                              */
-/*                                                                          */
-/*       <Statement>   :== <Identifier> ":=" <Expression>                   */
-/*                                                                          */
-/*                                                                          */
-/*    Inputs:       None                                                    */
-/*                                                                          */
-/*    Outputs:      None                                                    */
-/*                                                                          */
-/*    Returns:      Nothing                                                 */
-/*                                                                          */
-/*    Side Effects: Lookahead token advanced.                               */
-/*                                                                          */
-/*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseStatement( void )
-{
-    Accept( IDENTIFIER );
-    Accept( ASSIGNMENT );       /* ":=" has token name ASSIGNMENT.          */ 
-    ParseExpression();
+PRIVATE void ParseDeclarations(void) {
+    Accept(VAR);
+    Accept(IDENTIFIER);
+    while(CurrentToken.code != SEMICOLON) {
+        Accept(COMMA);
+        Accept(IDENTIFIER);
+    }
+    Accept(SEMICOLON);
 }
 
 
-/*--------------------------------------------------------------------------*/
-/*                                                                          */
-/*  ParseExpression implements:                                             */
-/*                                                                          */
-/*       <Expression>  :== <Identifier> | <IntConst>                        */
-/*                                                                          */
-/*       Note that <Identifier> and <IntConst> are handled by the scanner   */
-/*       and are returned as tokens IDENTIFER and INTCONST respectively.    */
-/*                                                                          */
-/*                                                                          */
-/*    Inputs:       None                                                    */
-/*                                                                          */
-/*    Outputs:      None                                                    */
-/*                                                                          */
-/*    Returns:      Nothing                                                 */
-/*                                                                          */
-/*    Side Effects: Lookahead token advanced.                               */
-/*                                                                          */
-/*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseExpression( void )
-{
-    if ( CurrentToken.code == IDENTIFIER )  Accept( IDENTIFIER );
-    else  Accept( INTCONST );
+PRIVATE void ParseProcDeclarations(void) {
+    Accept(PROCEDURE);
+    Accept(IDENTIFIER);
+    if(CurrentToken.code != SEMICOLON) {
+        ParseParameterList();
+    }
+    Accept(SEMICOLON);
+    if(CurrentToken.code == VAR) {
+        ParseDeclarations();
+    }
+    while (CurrentToken.code == PROCEDURE) {
+        ParseProcDeclarations();
+    }
+    ParseBlock();
+    Accept(SEMICOLON);
 }
 
+PRIVATE void ParseBlock(void){
+    Accept(BEGIN);
+    while(CurrentToken.code != END) {
+        ParseStatement();
+        Accept(SEMICOLON);
+    }
+    Accept(END);
+}
+
+PRIVATE void ParseParameterList(void) {
+    Accept(LEFTPARENTHESIS);
+    ParseFormalParameter();
+    while(CurrentToken.code != RIGHTPARENTHESIS) {
+        Accept(COMMA);
+        ParseFormalParameter();
+    }
+}
+
+PRIVATE void ParseFormalParameter(void) {
+    if(CurrentToken.code == REF) {
+        Accept(REF);
+    }
+    Accept(IDENTIFIER);
+}
+
+PRIVATE void ParseStatement(void) {
+
+}
 
 
 /*--------------------------------------------------------------------------*/
@@ -211,14 +224,14 @@ PRIVATE void ParseExpression( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void Accept( int ExpectedToken )
+PRIVATE void Accept(int ExpectedToken )
 {
     if ( CurrentToken.code != ExpectedToken )  {
-        SyntaxError( ExpectedToken, CurrentToken );
+        SyntaxError( ExpectedToken, CurrentToken);
         ReadToEndOfFile();
-        fclose( InputFile );
-        fclose( ListFile );
-        exit( EXIT_FAILURE );
+        fclose( InputFile);
+        fclose( ListFile);
+        exit( EXIT_FAILURE);
     }
     else  CurrentToken = GetToken();
 }
@@ -252,18 +265,18 @@ PRIVATE int  OpenFiles( int argc, char *argv[] )
 {
 
     if ( argc != 3 )  {
-        fprintf( stderr, "%s <inputfile> <listfile>\n", argv[0] );
+        fprintf( stderr, "%s <inputfile> <listfile>\n", argv[0]);
         return 0;
     }
 
     if ( NULL == ( InputFile = fopen( argv[1], "r" ) ) )  {
-        fprintf( stderr, "cannot open \"%s\" for input\n", argv[1] );
+        fprintf( stderr, "cannot open \"%s\" for input\n", argv[1]);
         return 0;
     }
 
     if ( NULL == ( ListFile = fopen( argv[2], "w" ) ) )  {
-        fprintf( stderr, "cannot open \"%s\" for output\n", argv[2] );
-        fclose( InputFile );
+        fprintf( stderr, "cannot open \"%s\" for output\n", argv[2]);
+        fclose( InputFile);
         return 0;
     }
 
@@ -298,7 +311,7 @@ PRIVATE int  OpenFiles( int argc, char *argv[] )
 PRIVATE void ReadToEndOfFile( void )
 {
     if ( CurrentToken.code != ENDOFINPUT )  {
-        Error( "Parsing ends here in this program\n", CurrentToken.pos );
+        Error( "Parsing ends here in this program\n", CurrentToken.pos);
         while ( CurrentToken.code != ENDOFINPUT )  CurrentToken = GetToken();
     }
 }
