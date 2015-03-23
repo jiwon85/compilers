@@ -5,7 +5,7 @@
 /*                                                                          */
 /*       Group Members:          ID number                                  */
 /*                                                                          */
-/*           Jiwon Min           14201895                                   */                                
+/*           Ji Won Min           14201895                                  */                                
 /*                                                                          */
 /*       Currently just a copy of "smallparser.c".  To create "parser1.c",  */
 /*       modify this source to reflect the CPL grammar.                     */
@@ -70,7 +70,12 @@ PRIVATE void ParseProcDeclarations(void);
 PRIVATE void ParseBlock(void);
 PRIVATE void ParseParameterList(void);
 PRIVATE void ParseFormalParameter(void);
-PRIVATE void ParseStatement(void);
+PRIVATE void ParseStatement(void); 
+PRIVATE void ParseSimpleStatement(void);
+PRIVATE void ParseWhileStatement(void);
+PRIVATE void ParseIfStatement(void);
+PRIVATE void ParseReadStatement(void);
+PRIVATE void ParseWriteStatement(void);
 
 PRIVATE void Accept(int code);
 PRIVATE void ReadToEndOfFile(void);
@@ -191,8 +196,60 @@ PRIVATE void ParseFormalParameter(void) {
 }
 
 PRIVATE void ParseStatement(void) {
+    switch(CurrentToken.code){
+        case IDENTIFIER:
+        default:
+            ParseSimpleStatement();
+            break;
+        case WHILE:
+            ParseWhileStatement();
+            break;
+        case IF:
+            ParseIfStatement();
+            break;
+        case READ:
+            ParseReadStatement();
+            break;
+        case WRITE:
+            ParseWriteStatement();
+            break;
+    }
+}
+
+PRIVATE void ParseSimpleStatement(void) {
+    Accept(IDENTIFIER);
+    /* ParseRestOfStatement(); */
+}
+
+PRIVATE void ParseWhileStatement(void) {
+    Accept(WHILE);
+    /* ParseBooleanExpression(); */
+    Accept(DO);
+    ParseBlock();
+}
+
+PRIVATE void ParseIfStatement(void) {
+    Accept(IF);
+    /* ParseBooleanExpression(); */
+    Accept(THEN);
+    ParseBlock();
+    if(CurrentToken.code == ELSE) {
+        Accept(ELSE);
+        ParseBlock();
+    }
+}
+
+PRIVATE void ParseReadStatement(void) {
+    Accept(READ);
+    /*ParseProcCallList();*/
+}
+
+PRIVATE void ParseWriteStatement(void) {
+    Accept(WRITE);
+    /*ParseProcCallList();*/
 
 }
+
 
 
 /*--------------------------------------------------------------------------*/
