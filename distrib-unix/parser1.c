@@ -76,6 +76,18 @@ PRIVATE void ParseWhileStatement(void);
 PRIVATE void ParseIfStatement(void);
 PRIVATE void ParseReadStatement(void);
 PRIVATE void ParseWriteStatement(void);
+PRIVATE void ParseRestOfStatement(void);
+PRIVATE void ParseBooleanExpression(void);
+PRIVATE void ParseProcCallList(void);
+PRIVATE void ParseAssignment(void);
+PRIVATE void ParseExpression(void);
+PRIVATE void ParseRelOp(void);
+PRIVATE void ParseActualParameter(void);
+PRIVATE void ParseCompoundTerm(void);
+PRIVATE void ParseAddOp(void);
+PRIVATE void ParseMultOp(void);
+PRIVATE void ParseTerm(void);
+PRIVATE void ParseSubTerm(void);
 
 PRIVATE void Accept(int code);
 PRIVATE void ReadToEndOfFile(void);
@@ -218,19 +230,19 @@ PRIVATE void ParseStatement(void) {
 
 PRIVATE void ParseSimpleStatement(void) {
     Accept(IDENTIFIER);
-    /* ParseRestOfStatement(); */
+    ParseRestOfStatement(); 
 }
 
 PRIVATE void ParseWhileStatement(void) {
     Accept(WHILE);
-    /* ParseBooleanExpression(); */
+    ParseBooleanExpression();
     Accept(DO);
     ParseBlock();
 }
 
 PRIVATE void ParseIfStatement(void) {
     Accept(IF);
-    /* ParseBooleanExpression(); */
+    ParseBooleanExpression(); 
     Accept(THEN);
     ParseBlock();
     if(CurrentToken.code == ELSE) {
@@ -241,14 +253,132 @@ PRIVATE void ParseIfStatement(void) {
 
 PRIVATE void ParseReadStatement(void) {
     Accept(READ);
-    /*ParseProcCallList();*/
+    ParseProcCallList();
 }
 
 PRIVATE void ParseWriteStatement(void) {
     Accept(WRITE);
-    /*ParseProcCallList();*/
+    ParseProcCallList();
 
 }
+
+PRIVATE void ParseRestOfStatement(void) {
+    if(CurrentToken.code == LEFTPARENTHESIS) {
+        ParseProcCallList();
+    }
+    else if(CurrentToken.code == ASSIGNMENT) {
+        ParseAssignment();
+    }
+    /*do nothing for epsilon*/
+}
+
+PRIVATE void ParseBooleanExpression(void) {
+    ParseExpression();
+    ParseRelOp();
+    ParseExpression();
+}
+
+PRIVATE void ParseProcCallList(void) {
+    Accept(LEFTPARENTHESIS);
+    ParseActualParameter();
+    while(CurrentToken.code != RIGHTPARENTHESIS) {
+        Accept(COMMA);
+        ParseActualParameter();
+    }
+    Accept(RIGHTPARENTHESIS);
+}
+
+PRIVATE void ParseAssignment(void) {
+    Accept(ASSIGNMENT);
+    ParseExpression();
+}
+
+PRIVATE void ParseExpression(void) {
+    ParseCompoundTerm();
+    while(CurrentToken.code == ADD || CurrentToken.code == SUBTRACT) {
+        ParseAddOp();
+        ParseCompoundTerm();
+    }
+}
+
+PRIVATE void ParseRelOp(void) {
+    switch(CurrentToken.code) {
+        case EQUALITY:
+        default:
+            Accept(EQUALITY);
+            break;
+        case LESSEQUAL:
+            Accept(LESSEQUAL);
+            break;
+        case GREATEREQUAL:
+            Accept(GREATEREQUAL);
+            break;
+        case LESS:
+            Accept(LESS);
+            break;
+        case GREATER:
+            Accept(GREATER);
+            break;
+        /*default? don't know how to handle it. current one should handle error ok.*/
+    }
+}
+
+PRIVATE void ParseActualParameter(void) {
+    if(CurrentToken.code == IDENTIFIER) {
+        Accept(IDENTIFIER);
+    }
+    else{
+        ParseExpression();
+    }
+}
+
+PRIVATE void ParseCompoundTerm(void) {
+    ParseTerm();
+    while(CurrentToken.code == MULTIPLY || CurrentToken.code == DIVIDE) {
+        ParseMultOp();
+        ParseTerm();
+    }
+}
+
+PRIVATE void ParseAddOp(void) {
+    if(CurrentToken.code == ADD) {
+        Accept(ADD);
+    }
+    else{
+        Accept(SUBTRACT);
+    }
+}
+
+PRIVATE void ParseMultOp(void) {
+    if(CurrentToken.code == MULTIPLY) {
+        Accept(MULTIPLY);
+    }
+    else{
+        Accept(DIVIDE);
+    }
+}
+
+PRIVATE void ParseTerm(void) {
+    if(CurrentToken.code == SUBTRACT) {
+        Accept(SUBTRACT);
+    }
+    ParseSubTerm();
+}
+
+PRIVATE void ParseSubTerm(void) {
+    if(CurrentToken.code == IDENTIFIER) {
+        Accept(IDENTIFIER);
+    }
+    else if(CurrentToken.code == INTCONST) {
+        Accept(INTCONST);
+    }
+    else{
+        Accept(LEFTPARENTHESIS);
+        ParseExpression();
+        Accept(RIGHTPARENTHESIS);
+    }
+}
+
 
 
 
