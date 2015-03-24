@@ -66,7 +66,7 @@ PRIVATE int  OpenFiles(int argc, char *argv[]);
 
 PRIVATE void ParseProgram(void);
 PRIVATE void ParseDeclarations(void);
-PRIVATE void ParseProcDeclarations(void);
+PRIVATE void ParseProcDeclaration(void);
 PRIVATE void ParseBlock(void);
 PRIVATE void ParseParameterList(void);
 PRIVATE void ParseFormalParameter(void);
@@ -145,7 +145,7 @@ PRIVATE void ParseProgram(void) {
         ParseDeclarations();
     }
     while (CurrentToken.code == PROCEDURE) {
-        ParseProcDeclarations();
+        ParseProcDeclaration();
     }
     ParseBlock();
     Accept(ENDOFPROGRAM);     /* Token "." has name ENDOFPROGRAM          */
@@ -165,10 +165,10 @@ PRIVATE void ParseDeclarations(void) {
 
 
 
-PRIVATE void ParseProcDeclarations(void) {
+PRIVATE void ParseProcDeclaration(void) {
     Accept(PROCEDURE);
     Accept(IDENTIFIER);
-    if(CurrentToken.code != SEMICOLON) {
+    if(CurrentToken.code == LEFTPARENTHESIS) {
         ParseParameterList();
     }
     Accept(SEMICOLON);
@@ -176,7 +176,7 @@ PRIVATE void ParseProcDeclarations(void) {
         ParseDeclarations();
     }
     while (CurrentToken.code == PROCEDURE) {
-        ParseProcDeclarations();
+        ParseProcDeclaration();
     }
     ParseBlock();
     Accept(SEMICOLON);
@@ -198,6 +198,7 @@ PRIVATE void ParseParameterList(void) {
         Accept(COMMA);
         ParseFormalParameter();
     }
+    Accept(RIGHTPARENTHESIS);
 }
 
 PRIVATE void ParseFormalParameter(void) {
@@ -281,7 +282,7 @@ PRIVATE void ParseBooleanExpression(void) {
 PRIVATE void ParseProcCallList(void) {
     Accept(LEFTPARENTHESIS);
     ParseActualParameter();
-    while(CurrentToken.code != RIGHTPARENTHESIS) {
+    while(CurrentToken.code == COMMA) {
         Accept(COMMA);
         ParseActualParameter();
     }
@@ -324,12 +325,16 @@ PRIVATE void ParseRelOp(void) {
 }
 
 PRIVATE void ParseActualParameter(void) {
-    if(CurrentToken.code == IDENTIFIER) {
-        Accept(IDENTIFIER);
+    /*this is wrong: can't differentiate between x and x-1 in params*/
+    /*
+    if(CurrentToken.code != IDENTIFIER) {
+        ParseExpression(); 
     }
     else{
         ParseExpression();
     }
+    */
+    ParseExpression();
 }
 
 PRIVATE void ParseCompoundTerm(void) {
