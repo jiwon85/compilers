@@ -7,12 +7,10 @@
 /*                                                                          */
 /*           Ji Won Min           14201895                                  */                                
 /*                                                                          */
-/*       Currently just a copy of "smallparser.c".  To create "parser1.c",  */
-/*       modify this source to reflect the CPL grammar.                     */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*       smallparser                                                        */
+/*       parser1                                                            */
 /*                                                                          */
 /*       An illustration of the use of the character handler and scanner    */
 /*       in a parser for the language                                       */
@@ -325,16 +323,7 @@ PRIVATE void ParseRelOp(void) {
 }
 
 PRIVATE void ParseActualParameter(void) {
-    /*this is wrong: can't differentiate between x and x-1 in params*/
-    /*
-    if(CurrentToken.code != IDENTIFIER) {
-        ParseExpression(); 
-    }
-    else{
-        ParseExpression();
-    }
-    */
-    ParseExpression();
+    ParseExpression(); /* a single variable is also an expression */
 }
 
 PRIVATE void ParseCompoundTerm(void) {
