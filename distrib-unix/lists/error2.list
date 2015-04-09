@@ -1,0 +1,8 @@
+  1 PROGRAM test2;
+  2 VAR  x, y;
+  3 BEGIN
+  4     WHILE x > 0 BEGIN y := x; END;
+                    ^
+Syntax: Expected DO, got BEGIN
+
+  5 END.

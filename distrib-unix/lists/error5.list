@@ -1,0 +1,25 @@
+  1 PROGRAM test5;
+  2 VAR x;
+  3 BEGIN
+  4     x := 10;
+  5     WHILE x > 0 DO IF X = 3 THEN BEGIN
+                       ^
+Syntax: Expected BEGIN, got IF
+
+  6         WRITE( x );
+  7         x := x - 1;
+  8     END;
+  9 END.
+       ^
+Syntax: Expected ;, got .
+
+       ^
+Syntax: Expected one of: END IF READ WHILE WRITE Identifier : got .
+
+ 10         
+    ^
+Syntax: Expected END, got End of File
+
+    ^
+Syntax: Expected ., got End of File
+

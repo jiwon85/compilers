@@ -97,11 +97,12 @@ PRIVATE void Accept(int code);
 PRIVATE void ReadToEndOfFile(void);
 */
 
+PRIVATE SET StatementFS;
 PRIVATE SET StatementFS_aug;
 PRIVATE SET StatementFBS;
-PRIVATE SET DeclarationsFS_aug;
+PRIVATE SET DeclarationsFS;
 PRIVATE SET DeclarationsFBS;
-PRIVATE SET ProcDeclarationsFS_aug;
+PRIVATE SET ProcDeclarationsFS;
 PRIVATE SET ProcDeclarationsFBS;
 
 
@@ -150,21 +151,22 @@ PUBLIC int main ( int argc, char *argv[] )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseProgram(void) {
+PRIVATE void ParseProgram (void) {
     Accept(PROGRAM);
     Accept(IDENTIFIER);
     Accept(SEMICOLON);
-    Synchronise(&DeclarationsFS_aug, &DeclarationsFBS);
+    Synchronise(&DeclarationsFS, &DeclarationsFBS);
     if(CurrentToken.code == VAR) {
         ParseDeclarations();
     }
-    Synchronise(&ProcDeclarationsFS_aug, &ProcDeclarationsFBS);
+    Synchronise(&ProcDeclarationsFS, &ProcDeclarationsFBS);
     while (CurrentToken.code == PROCEDURE) {
         ParseProcDeclaration();
-        Synchronise(&ProcDeclarationsFS_aug, &ProcDeclarationsFBS);
+        Synchronise(&ProcDeclarationsFS, &ProcDeclarationsFBS);
     }
     ParseBlock();
     Accept(ENDOFPROGRAM);     /* Token "." has name ENDOFPROGRAM          */
+    Accept(ENDOFINPUT); 
 }
 
 
@@ -188,14 +190,14 @@ PRIVATE void ParseProcDeclaration(void) {
         ParseParameterList();
     }
     Accept(SEMICOLON);
-    Synchronise(&DeclarationsFS_aug, &DeclarationsFBS);
+    Synchronise(&DeclarationsFS, &DeclarationsFBS);
     if(CurrentToken.code == VAR) {
         ParseDeclarations();
     }
-    Synchronise(&ProcDeclarationsFS_aug, &ProcDeclarationsFBS);
+    Synchronise(&ProcDeclarationsFS, &ProcDeclarationsFBS);
     while (CurrentToken.code == PROCEDURE) {
         ParseProcDeclaration();
-        Synchronise(&ProcDeclarationsFS_aug, &ProcDeclarationsFBS);
+        Synchronise(&ProcDeclarationsFS, &ProcDeclarationsFBS);
     }
     ParseBlock();
     Accept(SEMICOLON);
@@ -204,7 +206,7 @@ PRIVATE void ParseProcDeclaration(void) {
 PRIVATE void ParseBlock(void){
     Accept(BEGIN);
     Synchronise(&StatementFS_aug, &StatementFBS);
-    while(CurrentToken.code != END) {
+    while(InSet(&StatementFS, CurrentToken.code)) {
         ParseStatement();
         Accept(SEMICOLON);
         Synchronise(&StatementFS_aug, &StatementFBS);
@@ -427,15 +429,16 @@ PRIVATE void Synchronise( SET *F, SET *FB ) {
 
 PRIVATE void SetupSets(void) {
     /* <Block> */
+    InitSet(&StatementFS, 5, IDENTIFIER, WHILE, IF, READ, WRITE);
     InitSet(&StatementFS_aug, 6, IDENTIFIER, WHILE, IF, READ, WRITE, END);
-    InitSet(&StatementFBS, 4, SEMICOLON, ELSE, ENDOFPROGRAM, ENDOFINPUT);
+    InitSet(&StatementFBS, 4, ENDOFPROGRAM, SEMICOLON, ELSE, ENDOFINPUT);
 
-    /* <Block> */
-    InitSet(&DeclarationsFS_aug, 3, VAR, PROCEDURE, BEGIN);
-    InitSet(&DeclarationsFBS, 3, ENDOFINPUT, ENDOFPROGRAM, END);
+    /* <Program> */
+    InitSet(&DeclarationsFS, 3, VAR, PROCEDURE, BEGIN);
+    InitSet(&DeclarationsFBS, 3, ENDOFPROGRAM, ENDOFINPUT, END);
 
-    /* <Block> */
-    InitSet(&ProcDeclarationsFS_aug, 2, PROCEDURE, BEGIN);
+    /* <ProcDeclarations> */
+    InitSet(&ProcDeclarationsFS, 2, PROCEDURE, BEGIN);
     InitSet(&ProcDeclarationsFBS, 3, ENDOFINPUT, ENDOFPROGRAM, END);
 }
 
@@ -476,8 +479,9 @@ PRIVATE void Accept(int ExpectedToken )
     if(recovering) {
         while(CurrentToken.code != ExpectedToken &&
             CurrentToken.code != ENDOFINPUT) {
-            recovering = 0;
-        }
+            CurrentToken = GetToken(); 
+        }    
+        recovering = 0;
     }
     if(CurrentToken.code != ExpectedToken) {
         SyntaxError(ExpectedToken, CurrentToken);

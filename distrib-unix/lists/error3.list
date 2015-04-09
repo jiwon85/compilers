@@ -1,0 +1,27 @@
+  1 PROGRAM x;
+  2 VAR accumulator;
+  3     !-------------------------------------------------------
+  4     PROCEDURE y;
+  5         !---------------------------------------------------
+  6         PROCEDURE z;
+  7         BEGIN
+  8             IF count <= 3 BEGIN         ! missing THEN
+                              ^
+Syntax: Expected THEN, got BEGIN
+
+  9                 accumulator := accumulator + 1;
+ 10                 z;
+ 11             END;
+ 12         END;                            ! end of procedure z
+ 13         !---------------------------------------------------
+ 14     BEGIN
+ 15         accumulator := 0;
+ 16         count := 0;
+ 17         z;
+ 18     END;                                ! end of procedure y
+ 19     !-------------------------------------------------------
+ 20 BEGIN
+ 21     y;
+ 22     WRITE( y );
+ 23 END.
+ 24         

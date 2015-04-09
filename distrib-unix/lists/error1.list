@@ -1,0 +1,27 @@
+  1 !
+  2 !               Test Program with errors
+  3 !
+  4 PROGRAM test;
+  5 VAR x, y;
+  6 
+  7 PROCEDURE muck ( REF x );
+  8 y;              ! VAR omitted
+    ^
+Syntax: Expected one of: BEGIN PROCEDURE VAR : got Identifier
+
+  9 BEGIN
+ 10     y := x + 234 * y;
+ 11 ;               ! END omitted
+    ^
+Syntax: Expected one of: END IF READ WHILE WRITE Identifier : got ;
+
+    ^
+Syntax: Expected END, got ;
+
+ 12 
+ 13 BEGIN           ! main program starts here
+ 14     muck( x );
+ 15 END             ! missing '.'
+    ^
+Syntax: Expected ., got End of File
+
