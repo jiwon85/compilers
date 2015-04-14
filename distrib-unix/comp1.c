@@ -1,25 +1,16 @@
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*       comp1                                                              */
+/*       comp1.c                                                           */
 /*                                                                          */
 /*                                                                          */
-/*       Group Members:          ID numbers                                 */
+/*       Group Members:          ID number                                  */
 /*                                                                          */
-/*           John Doe            12345678                                   */
-/*           Jane Murphy         23456789                                   */
-/*           Anthony N. Other    12345679                                   */
+/*           Ji Won Min           14201895                                  */                                
 /*                                                                          */
-/*                                                                          */
-/*       Currently this file is just a placeholder (actually a copy of      */
-/*       "smallparser.c", which is just a simple parser, not a compiler at  */
-/*       all).                                                              */
-/*       When you have completed the second part of the project (i.e.,      */
-/*       "parser2.c") copy it over this file.  In this way, "comp1.c"       */
-/*       builds upon your earlier parser work.                              */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*       smallparser                                                        */
+/*       parser1                                                            */
 /*                                                                          */
 /*       An illustration of the use of the character handler and scanner    */
 /*       in a parser for the language                                       */
@@ -47,6 +38,10 @@
 #include "global.h"
 #include "scanner.h"
 #include "line.h"
+#include "sets.h"
+#include "symbol.h"
+#include "strtab.h"
+#include "code.h"
 
 
 /*--------------------------------------------------------------------------*/
@@ -69,12 +64,55 @@ PRIVATE TOKEN  CurrentToken;       /*  Parser lookahead token.  Updated by  */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE int  OpenFiles( int argc, char *argv[] );
-PRIVATE void ParseProgram( void );
-PRIVATE void ParseStatement( void );
-PRIVATE void ParseExpression( void );
-PRIVATE void Accept( int code );
-PRIVATE void ReadToEndOfFile( void );
+PRIVATE int  OpenFiles(int argc, char *argv[]);
+
+PRIVATE void ParseProgram(void);
+PRIVATE void ParseDeclarations(void);
+PRIVATE void ParseProcDeclaration(void);
+PRIVATE void ParseBlock(void);
+PRIVATE void ParseParameterList(void);
+PRIVATE void ParseFormalParameter(void);
+PRIVATE void ParseStatement(void); 
+PRIVATE void ParseSimpleStatement(void);
+PRIVATE void ParseWhileStatement(void);
+PRIVATE void ParseIfStatement(void);
+PRIVATE void ParseReadStatement(void);
+PRIVATE void ParseWriteStatement(void);
+PRIVATE void ParseRestOfStatement(void);
+PRIVATE void ParseBooleanExpression(void);
+PRIVATE void ParseProcCallList(void);
+PRIVATE void ParseAssignment(void);
+PRIVATE void ParseExpression(void);
+PRIVATE void ParseRelOp(void);
+PRIVATE void ParseActualParameter(void);
+PRIVATE void ParseCompoundTerm(void);
+PRIVATE void ParseAddOp(void);
+PRIVATE void ParseMultOp(void);
+PRIVATE void ParseTerm(void);
+PRIVATE void ParseSubTerm(void);
+
+PRIVATE void Synchronise( SET *F, SET *FB );
+PRIVATE void SetupSets(void);
+
+PRIVATE void Accept(int code);
+
+PRIVATE void MakeSymbolTableEntry( int symtype );
+PRIVATE SYMBOL *LookupSymbol( void );
+
+/*
+PRIVATE void ReadToEndOfFile(void);
+*/
+
+PRIVATE SET StatementFS;
+PRIVATE SET StatementFS_aug;
+PRIVATE SET StatementFBS;
+PRIVATE SET DeclarationsFS;
+PRIVATE SET DeclarationsFBS;
+PRIVATE SET ProcDeclarationsFS;
+PRIVATE SET ProcDeclarationsFBS;
+
+PRIVATE int scope;
+PRIVATE int varaddress;
 
 
 /*--------------------------------------------------------------------------*/
@@ -88,11 +126,14 @@ PRIVATE void ReadToEndOfFile( void );
 PUBLIC int main ( int argc, char *argv[] )
 {
     if ( OpenFiles( argc, argv ) )  {
-        InitCharProcessor( InputFile, ListFile );
+        InitCharProcessor( InputFile, ListFile);
+        SetupSets();
         CurrentToken = GetToken();
+        scope = 1;
+        varaddress = 0; /*is this correct??????*/
         ParseProgram();
-        fclose( InputFile );
-        fclose( ListFile );
+        fclose( InputFile);
+        fclose( ListFile);
         return  EXIT_SUCCESS;
     }
     else 
@@ -121,69 +162,306 @@ PUBLIC int main ( int argc, char *argv[] )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseProgram( void )
-{
-    Accept( BEGIN );
-    while ( CurrentToken.code == IDENTIFIER )  {
-        ParseStatement();
-        Accept( SEMICOLON );
+PRIVATE void ParseProgram (void) {
+    Accept(PROGRAM);
+    Accept(IDENTIFIER);
+    Accept(SEMICOLON);
+    Synchronise(&DeclarationsFS, &DeclarationsFBS);
+    if(CurrentToken.code == VAR) {
+        ParseDeclarations();
     }
-    Accept( END );
-    Accept( ENDOFPROGRAM );     /* Token "." has name ENDOFPROGRAM          */
+    Synchronise(&ProcDeclarationsFS, &ProcDeclarationsFBS);
+    while (CurrentToken.code == PROCEDURE) {
+        ParseProcDeclaration();
+        Synchronise(&ProcDeclarationsFS, &ProcDeclarationsFBS);
+    }
+    ParseBlock();
+    Accept(ENDOFPROGRAM);     /* Token "." has name ENDOFPROGRAM          */
+    Accept(ENDOFINPUT); 
 }
 
 
-/*--------------------------------------------------------------------------*/
-/*                                                                          */
-/*  ParseStatement implements:                                              */
-/*                                                                          */
-/*       <Statement>   :== <Identifier> ":=" <Expression>                   */
-/*                                                                          */
-/*                                                                          */
-/*    Inputs:       None                                                    */
-/*                                                                          */
-/*    Outputs:      None                                                    */
-/*                                                                          */
-/*    Returns:      Nothing                                                 */
-/*                                                                          */
-/*    Side Effects: Lookahead token advanced.                               */
-/*                                                                          */
-/*--------------------------------------------------------------------------*/
 
-PRIVATE void ParseStatement( void )
-{
-    Accept( IDENTIFIER );
-    Accept( ASSIGNMENT );       /* ":=" has token name ASSIGNMENT.          */ 
+PRIVATE void ParseDeclarations(void) {
+    Accept(VAR);
+    MakeSymbolTableEntry(STYPE_VARIABLE);
+    Accept(IDENTIFIER);
+    while(CurrentToken.code == COMMA) {
+        Accept(COMMA);
+        MakeSymbolTableEntry(STYPE_VARIABLE);
+        Accept(IDENTIFIER);
+    }
+    Accept(SEMICOLON);
+}
+
+
+
+PRIVATE void ParseProcDeclaration(void) {
+    Accept(PROCEDURE);
+    MakeSymbolTableEntry(STYPE_PROCEDURE);
+    Accept(IDENTIFIER);
+    scope++;
+    if(CurrentToken.code == LEFTPARENTHESIS) {
+        ParseParameterList();
+    }
+    Accept(SEMICOLON);
+    Synchronise(&DeclarationsFS, &DeclarationsFBS);
+    if(CurrentToken.code == VAR) {
+        ParseDeclarations();
+    }
+    Synchronise(&ProcDeclarationsFS, &ProcDeclarationsFBS);
+    while (CurrentToken.code == PROCEDURE) {
+        ParseProcDeclaration();
+        Synchronise(&ProcDeclarationsFS, &ProcDeclarationsFBS);
+    }
+    ParseBlock();
+    Accept(SEMICOLON);
+    RemoveSymbols(scope);
+    scope--;
+}
+
+PRIVATE void ParseBlock(void){
+    Accept(BEGIN);
+    Synchronise(&StatementFS_aug, &StatementFBS);
+    while(InSet(&StatementFS, CurrentToken.code)) {
+        ParseStatement();
+        Accept(SEMICOLON);
+        Synchronise(&StatementFS_aug, &StatementFBS);
+    }
+    Accept(END);
+}
+
+PRIVATE void ParseParameterList(void) {
+    Accept(LEFTPARENTHESIS);
+    ParseFormalParameter();
+    while(CurrentToken.code != RIGHTPARENTHESIS) {
+        Accept(COMMA);
+        ParseFormalParameter();
+    }
+    Accept(RIGHTPARENTHESIS);
+}
+
+PRIVATE void ParseFormalParameter(void) {
+    if(CurrentToken.code == REF) {
+        Accept(REF);
+    }
+    Accept(IDENTIFIER);
+}
+
+PRIVATE void ParseStatement(void) {
+    switch(CurrentToken.code){
+        case IDENTIFIER:
+        default:
+            ParseSimpleStatement();
+            break;
+        case WHILE:
+            ParseWhileStatement();
+            break;
+        case IF:
+            ParseIfStatement();
+            break;
+        case READ:
+            ParseReadStatement();
+            break;
+        case WRITE:
+            ParseWriteStatement();
+            break;
+    }
+}
+
+PRIVATE void ParseSimpleStatement(void) {
+    Accept(IDENTIFIER);
+    ParseRestOfStatement(); 
+}
+
+PRIVATE void ParseWhileStatement(void) {
+    Accept(WHILE);
+    ParseBooleanExpression();
+    Accept(DO);
+    ParseBlock();
+}
+
+PRIVATE void ParseIfStatement(void) {
+    Accept(IF);
+    ParseBooleanExpression(); 
+    Accept(THEN);
+    ParseBlock();
+    if(CurrentToken.code == ELSE) {
+        Accept(ELSE);
+        ParseBlock();
+    }
+}
+
+PRIVATE void ParseReadStatement(void) {
+    Accept(READ);
+    ParseProcCallList();
+}
+
+PRIVATE void ParseWriteStatement(void) {
+    Accept(WRITE);
+    ParseProcCallList();
+
+}
+
+PRIVATE void ParseRestOfStatement(void) {
+    if(CurrentToken.code == LEFTPARENTHESIS) {
+        ParseProcCallList();
+    }
+    else if(CurrentToken.code == ASSIGNMENT) {
+        ParseAssignment();
+    }
+    /*do nothing for epsilon*/
+}
+
+PRIVATE void ParseBooleanExpression(void) {
+    ParseExpression();
+    ParseRelOp();
     ParseExpression();
 }
 
-
-/*--------------------------------------------------------------------------*/
-/*                                                                          */
-/*  ParseExpression implements:                                             */
-/*                                                                          */
-/*       <Expression>  :== <Identifier> | <IntConst>                        */
-/*                                                                          */
-/*       Note that <Identifier> and <IntConst> are handled by the scanner   */
-/*       and are returned as tokens IDENTIFER and INTCONST respectively.    */
-/*                                                                          */
-/*                                                                          */
-/*    Inputs:       None                                                    */
-/*                                                                          */
-/*    Outputs:      None                                                    */
-/*                                                                          */
-/*    Returns:      Nothing                                                 */
-/*                                                                          */
-/*    Side Effects: Lookahead token advanced.                               */
-/*                                                                          */
-/*--------------------------------------------------------------------------*/
-
-PRIVATE void ParseExpression( void )
-{
-    if ( CurrentToken.code == IDENTIFIER )  Accept( IDENTIFIER );
-    else  Accept( INTCONST );
+PRIVATE void ParseProcCallList(void) {
+    Accept(LEFTPARENTHESIS);
+    ParseActualParameter();
+    while(CurrentToken.code == COMMA) {
+        Accept(COMMA);
+        ParseActualParameter();
+    }
+    Accept(RIGHTPARENTHESIS);
 }
 
+PRIVATE void ParseAssignment(void) {
+    Accept(ASSIGNMENT);
+    ParseExpression();
+}
+
+PRIVATE void ParseExpression(void) {
+    ParseCompoundTerm();
+    while(CurrentToken.code == ADD || CurrentToken.code == SUBTRACT) {
+        ParseAddOp();
+        ParseCompoundTerm();
+    }
+}
+
+PRIVATE void ParseRelOp(void) {
+    switch(CurrentToken.code) {
+        case EQUALITY:
+        default:
+            Accept(EQUALITY);
+            break;
+        case LESSEQUAL:
+            Accept(LESSEQUAL);
+            break;
+        case GREATEREQUAL:
+            Accept(GREATEREQUAL);
+            break;
+        case LESS:
+            Accept(LESS);
+            break;
+        case GREATER:
+            Accept(GREATER);
+            break;
+        /*default? don't know how to handle it. current one should handle error ok.*/
+    }
+}
+
+PRIVATE void ParseActualParameter(void) {
+    ParseExpression(); /* a single variable is also an expression */
+}
+
+PRIVATE void ParseCompoundTerm(void) {
+    ParseTerm();
+    while(CurrentToken.code == MULTIPLY || CurrentToken.code == DIVIDE) {
+        ParseMultOp();
+        ParseTerm();
+    }
+}
+
+PRIVATE void ParseAddOp(void) {
+    if(CurrentToken.code == ADD) {
+        Accept(ADD);
+    }
+    else{
+        Accept(SUBTRACT);
+    }
+}
+
+PRIVATE void ParseMultOp(void) {
+    if(CurrentToken.code == MULTIPLY) {
+        Accept(MULTIPLY);
+    }
+    else{
+        Accept(DIVIDE);
+    }
+}
+
+PRIVATE void ParseTerm(void) {
+    if(CurrentToken.code == SUBTRACT) {
+        Accept(SUBTRACT);
+    }
+    ParseSubTerm();
+}
+
+PRIVATE void ParseSubTerm(void) {
+    SYMBOL *var;
+    if(CurrentToken.code == IDENTIFIER) {
+        var = LookupSymbol();
+        Accept(IDENTIFIER);
+        if(var != NULL) Emit( I_LOADA, var->address);
+
+    }
+    else if(CurrentToken.code == INTCONST) {
+        Accept(INTCONST);
+    }
+    else{
+        Accept(LEFTPARENTHESIS);
+        ParseExpression();
+        Accept(RIGHTPARENTHESIS);
+    }
+}
+
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  Synchronise for Augmented S-Algol Recovery                              */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/*  Description goes here                                                   */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+
+PRIVATE void Synchronise( SET *F, SET *FB ) {
+    SET S;
+    S = Union( 2, F, FB );
+    if ( !InSet( F, CurrentToken.code ) ) {
+        SyntaxError2( *F, CurrentToken );
+        while ( !InSet( &S, CurrentToken.code ) )
+            CurrentToken = GetToken();
+    }
+} 
+
+
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  SetupSets for Augmented S-Algol Recovery                                */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/*  Description goes here                                                   */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+
+PRIVATE void SetupSets(void) {
+    /* <Block> */
+    InitSet(&StatementFS, 5, IDENTIFIER, WHILE, IF, READ, WRITE);
+    InitSet(&StatementFS_aug, 6, IDENTIFIER, WHILE, IF, READ, WRITE, END);
+    InitSet(&StatementFBS, 4, ENDOFPROGRAM, SEMICOLON, ELSE, ENDOFINPUT);
+
+    /* <Program> */
+    InitSet(&DeclarationsFS, 3, VAR, PROCEDURE, BEGIN);
+    InitSet(&DeclarationsFBS, 3, ENDOFPROGRAM, ENDOFINPUT, END);
+
+    /* <ProcDeclarations> */
+    InitSet(&ProcDeclarationsFS, 2, PROCEDURE, BEGIN);
+    InitSet(&ProcDeclarationsFBS, 3, ENDOFINPUT, ENDOFPROGRAM, END);
+}
 
 
 /*--------------------------------------------------------------------------*/
@@ -215,18 +493,81 @@ PRIVATE void ParseExpression( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void Accept( int ExpectedToken )
+PRIVATE void Accept(int ExpectedToken )
 {
-    if ( CurrentToken.code != ExpectedToken )  {
-        SyntaxError( ExpectedToken, CurrentToken );
-        ReadToEndOfFile();
-        fclose( InputFile );
-        fclose( ListFile );
-        exit( EXIT_FAILURE );
+    static int recovering = 0;
+
+    if(recovering) {
+        while(CurrentToken.code != ExpectedToken &&
+            CurrentToken.code != ENDOFINPUT) {
+            CurrentToken = GetToken(); 
+        }    
+        recovering = 0;
     }
-    else  CurrentToken = GetToken();
+    if(CurrentToken.code != ExpectedToken) {
+        SyntaxError(ExpectedToken, CurrentToken);
+        recovering = 1;
+    }
+    else {
+        CurrentToken = GetToken();
+    }
 }
 
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  MakeSymbolTableEntry                                                    */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/*  Description goes here                                                   */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+
+
+PRIVATE void MakeSymbolTableEntry( int symtype )
+{
+
+ SYMBOL * oldsptr;
+ SYMBOL * newsptr;
+ int hashindex;
+ char * cptr;
+
+
+    if ( CurrentToken.code == IDENTIFIER ) {
+        if ( NULL == ( oldsptr = Probe( CurrentToken.s, &hashindex )) || oldsptr->scope < scope ) {
+            if ( oldsptr == NULL ) cptr = CurrentToken.s; else cptr = oldsptr->s;
+            if ( NULL == ( newsptr = EnterSymbol( cptr, hashindex ))) {
+                /*〈Fatal internal error in EnterSymbol, compiler must exit: code for this goes here〉 */
+            }
+            else {
+                if ( oldsptr == NULL ) PreserveString();
+                newsptr->scope = scope;
+                newsptr->type = symtype;
+                if ( symtype == STYPE_VARIABLE ) {
+                    newsptr->address = varaddress; varaddress++;
+                }
+                else newsptr->address = -1;
+            }
+        }
+        else { 
+            /*〈Error, variable already declared: code for this goes here〉*/
+        }
+    }
+}
+
+
+PRIVATE SYMBOL *LookupSymbol( void )
+{
+    SYMBOL *sptr;
+    if ( CurrentToken.code == IDENTIFIER ) {
+        sptr = Probe( CurrentToken.s, NULL );
+        if ( sptr == NULL ) {
+            Error( "Identifier not declared", CurrentToken.pos );
+            KillCodeGeneration( );
+        }
+    }
+    else sptr = NULL;
+    return sptr;
+} 
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -256,18 +597,18 @@ PRIVATE int  OpenFiles( int argc, char *argv[] )
 {
 
     if ( argc != 3 )  {
-        fprintf( stderr, "%s <inputfile> <listfile>\n", argv[0] );
+        fprintf( stderr, "%s <inputfile> <listfile>\n", argv[0]);
         return 0;
     }
 
     if ( NULL == ( InputFile = fopen( argv[1], "r" ) ) )  {
-        fprintf( stderr, "cannot open \"%s\" for input\n", argv[1] );
+        fprintf( stderr, "cannot open \"%s\" for input\n", argv[1]);
         return 0;
     }
 
     if ( NULL == ( ListFile = fopen( argv[2], "w" ) ) )  {
-        fprintf( stderr, "cannot open \"%s\" for output\n", argv[2] );
-        fclose( InputFile );
+        fprintf( stderr, "cannot open \"%s\" for output\n", argv[2]);
+        fclose( InputFile);
         return 0;
     }
 
@@ -299,10 +640,12 @@ PRIVATE int  OpenFiles( int argc, char *argv[] )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
+/*
 PRIVATE void ReadToEndOfFile( void )
 {
     if ( CurrentToken.code != ENDOFINPUT )  {
-        Error( "Parsing ends here in this program\n", CurrentToken.pos );
+        Error( "Parsing ends here in this program\n", CurrentToken.pos);
         while ( CurrentToken.code != ENDOFINPUT )  CurrentToken = GetToken();
     }
 }
+*/
