@@ -1,16 +1,16 @@
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*       comp1.c                                                           */
+/*       comp1.c                                                            */
 /*                                                                          */
 /*                                                                          */
 /*       Group Members:          ID number                                  */
 /*                                                                          */
-/*           Ji Won Min           14201895                                  */                                
+/*           Ji Won Min          14201895                                   */                                
 /*                                                                          */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*       parser1                                                            */
+/*       comp1                                                              */
 /*                                                                          */
 /*       An illustration of the use of the character handler and scanner    */
 /*       in a parser for the language                                       */
@@ -52,10 +52,22 @@
 
 PRIVATE FILE *InputFile;           /*  CPL source comes from here.          */
 PRIVATE FILE *ListFile;            /*  For nicely-formatted syntax errors.  */
+PRIVATE FILE *CodeFile;
 
 PRIVATE TOKEN  CurrentToken;       /*  Parser lookahead token.  Updated by  */
                                    /*  routine Accept (below).  Must be     */
                                    /*  initialised before parser starts.    */
+
+PRIVATE SET StatementFS;
+PRIVATE SET StatementFS_aug;
+PRIVATE SET StatementFBS;
+PRIVATE SET DeclarationsFS;
+PRIVATE SET DeclarationsFBS;
+PRIVATE SET ProcDeclarationsFS;
+PRIVATE SET ProcDeclarationsFBS;
+
+PRIVATE int scope;
+PRIVATE int varaddress;
 
 
 /*--------------------------------------------------------------------------*/
@@ -99,20 +111,7 @@ PRIVATE void Accept(int code);
 PRIVATE void MakeSymbolTableEntry( int symtype );
 PRIVATE SYMBOL *LookupSymbol( void );
 
-/*
-PRIVATE void ReadToEndOfFile(void);
-*/
 
-PRIVATE SET StatementFS;
-PRIVATE SET StatementFS_aug;
-PRIVATE SET StatementFBS;
-PRIVATE SET DeclarationsFS;
-PRIVATE SET DeclarationsFBS;
-PRIVATE SET ProcDeclarationsFS;
-PRIVATE SET ProcDeclarationsFBS;
-
-PRIVATE int scope;
-PRIVATE int varaddress;
 
 
 /*--------------------------------------------------------------------------*/
@@ -127,11 +126,13 @@ PUBLIC int main ( int argc, char *argv[] )
 {
     if ( OpenFiles( argc, argv ) )  {
         InitCharProcessor( InputFile, ListFile);
+        InitCodeGenerator(CodeFile);
         SetupSets();
         CurrentToken = GetToken();
         scope = 1;
         varaddress = 0; /*is this correct??????*/
         ParseProgram();
+        WriteCodeFile();
         fclose( InputFile);
         fclose( ListFile);
         return  EXIT_SUCCESS;
@@ -335,10 +336,15 @@ PRIVATE void ParseAssignment(void) {
 }
 
 PRIVATE void ParseExpression(void) {
+    int op;
     ParseCompoundTerm();
-    while(CurrentToken.code == ADD || CurrentToken.code == SUBTRACT) {
+    while ( ( op = CurrentToken.code ) == ADD || op == SUBTRACT ) {
         ParseAddOp();
         ParseCompoundTerm();
+        if ( op == ADD ) 
+            _Emit( I_ADD ); 
+        else 
+            _Emit( I_SUB );
     }
 }
 
@@ -369,11 +375,16 @@ PRIVATE void ParseActualParameter(void) {
 }
 
 PRIVATE void ParseCompoundTerm(void) {
+    int op;
     ParseTerm();
-    while(CurrentToken.code == MULTIPLY || CurrentToken.code == DIVIDE) {
+    while ( ( op = CurrentToken.code ) == MULTIPLY || op == DIVIDE ) {
         ParseMultOp();
         ParseTerm();
-    }
+        if ( op == MULTIPLY ) 
+            _Emit( I_MULT ); 
+        else 
+            _Emit( I_DIV );
+    } 
 }
 
 PRIVATE void ParseAddOp(void) {
@@ -395,29 +406,47 @@ PRIVATE void ParseMultOp(void) {
 }
 
 PRIVATE void ParseTerm(void) {
-    if(CurrentToken.code == SUBTRACT) {
-        Accept(SUBTRACT);
+    int negateflag = 0;
+    if ( CurrentToken.code == SUBTRACT ) {
+        negateflag = 1;
+        Accept( SUBTRACT );
     }
     ParseSubTerm();
+    if ( negateflag ) 
+        _Emit( I_NEG ); 
 }
 
 PRIVATE void ParseSubTerm(void) {
     SYMBOL *var;
-    if(CurrentToken.code == IDENTIFIER) {
-        var = LookupSymbol();
-        Accept(IDENTIFIER);
-        if(var != NULL) Emit( I_LOADA, var->address);
 
+    switch(CurrentToken.code){
+        case IDENTIFIER:
+        default:
+            var = LookupSymbol();
+            if ( var != NULL && var->type == STYPE_VARIABLE ){
+                Emit( I_LOADA, var->address );
+            }
+            else{
+                Error( "Identifier not declared", CurrentToken.pos );
+                KillCodeGeneration();
+            }
+            Accept( IDENTIFIER );
+            break; 
+            
+        case INTCONST:
+            Emit( I_LOADI, CurrentToken.value );
+            Accept( INTCONST );
+            break;
+
+        case LEFTPARENTHESIS:
+            Accept(LEFTPARENTHESIS);
+            ParseExpression();
+            Accept(RIGHTPARENTHESIS);
+            break;
     }
-    else if(CurrentToken.code == INTCONST) {
-        Accept(INTCONST);
-    }
-    else{
-        Accept(LEFTPARENTHESIS);
-        ParseExpression();
-        Accept(RIGHTPARENTHESIS);
-    }
+    
 }
+
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -537,6 +566,8 @@ PRIVATE void MakeSymbolTableEntry( int symtype )
             if ( oldsptr == NULL ) cptr = CurrentToken.s; else cptr = oldsptr->s;
             if ( NULL == ( newsptr = EnterSymbol( cptr, hashindex ))) {
                 /*〈Fatal internal error in EnterSymbol, compiler must exit: code for this goes here〉 */
+                Error( "Fatal internal error in EnterSymbol", CurrentToken.pos );
+            KillCodeGeneration();
             }
             else {
                 if ( oldsptr == NULL ) PreserveString();
@@ -550,6 +581,9 @@ PRIVATE void MakeSymbolTableEntry( int symtype )
         }
         else { 
             /*〈Error, variable already declared: code for this goes here〉*/
+            Error( "Variable already declared", CurrentToken.pos );
+            KillCodeGeneration();
+
         }
     }
 }
@@ -562,12 +596,13 @@ PRIVATE SYMBOL *LookupSymbol( void )
         sptr = Probe( CurrentToken.s, NULL );
         if ( sptr == NULL ) {
             Error( "Identifier not declared", CurrentToken.pos );
-            KillCodeGeneration( );
+            KillCodeGeneration();
         }
     }
     else sptr = NULL;
     return sptr;
 } 
+
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -612,40 +647,14 @@ PRIVATE int  OpenFiles( int argc, char *argv[] )
         return 0;
     }
 
+    if ( NULL == ( CodeFile = fopen( argv[3], "w" ) ) )  {
+        fprintf( stderr, "cannot open \"%s\" for output\n", argv[3]);
+        fclose( InputFile);
+        fclose( ListFile);
+        return 0;
+    }
+
     return 1;
 }
 
 
-/*--------------------------------------------------------------------------*/
-/*                                                                          */
-/*  ReadToEndOfFile:  Reads all remaining tokens from the input file.       */
-/*              associated input and listing files.                         */
-/*                                                                          */
-/*    This is used to ensure that the listing file refects the entire       */
-/*    input, even after a syntax error (because of crash & burn parsing,    */
-/*    if a routine like this is not used, the listing file will not be      */
-/*    complete.  Note that this routine also reports in the listing file    */
-/*    exactly where the parsing stopped.  Note that this routine is         */
-/*    superfluous in a parser that performs error-recovery.                 */
-/*                                                                          */
-/*                                                                          */
-/*    Inputs:       None                                                    */
-/*                                                                          */
-/*    Outputs:      None                                                    */
-/*                                                                          */
-/*    Returns:      Nothing                                                 */
-/*                                                                          */
-/*    Side Effects: Reads all remaining tokens from the input.  There won't */
-/*                  be any more available input after this routine returns. */
-/*                                                                          */
-/*--------------------------------------------------------------------------*/
-
-/*
-PRIVATE void ReadToEndOfFile( void )
-{
-    if ( CurrentToken.code != ENDOFINPUT )  {
-        Error( "Parsing ends here in this program\n", CurrentToken.pos);
-        while ( CurrentToken.code != ENDOFINPUT )  CurrentToken = GetToken();
-    }
-}
-*/
