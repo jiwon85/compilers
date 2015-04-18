@@ -90,12 +90,12 @@ PRIVATE void ParseWhileStatement(void);
 PRIVATE void ParseIfStatement(void);
 PRIVATE void ParseReadStatement(void);
 PRIVATE void ParseWriteStatement(void);
-PRIVATE void ParseRestOfStatement(void);
-PRIVATE void ParseBooleanExpression(void);
+PRIVATE void ParseRestOfStatement( SYMBOL *target );
+PRIVATE int  ParseBooleanExpression(void);
 PRIVATE void ParseProcCallList(void);
 PRIVATE void ParseAssignment(void);
 PRIVATE void ParseExpression(void);
-PRIVATE void ParseRelOp(void);
+PRIVATE int  ParseRelOp(void);
 PRIVATE void ParseActualParameter(void);
 PRIVATE void ParseCompoundTerm(void);
 PRIVATE void ParseAddOp(void);
@@ -125,6 +125,7 @@ PRIVATE SYMBOL *LookupSymbol( void );
 PUBLIC int main ( int argc, char *argv[] )
 {
     if ( OpenFiles( argc, argv ) )  {
+        
         InitCharProcessor( InputFile, ListFile);
         InitCodeGenerator(CodeFile);
         SetupSets();
@@ -135,6 +136,7 @@ PUBLIC int main ( int argc, char *argv[] )
         WriteCodeFile();
         fclose( InputFile);
         fclose( ListFile);
+
         return  EXIT_SUCCESS;
     }
     else 
@@ -250,6 +252,7 @@ PRIVATE void ParseFormalParameter(void) {
 }
 
 PRIVATE void ParseStatement(void) {
+
     switch(CurrentToken.code){
         case IDENTIFIER:
         default:
@@ -271,53 +274,99 @@ PRIVATE void ParseStatement(void) {
 }
 
 PRIVATE void ParseSimpleStatement(void) {
-    Accept(IDENTIFIER);
-    ParseRestOfStatement(); 
+    SYMBOL *target;
+    target = LookupSymbol(); /* Look up IDENTIFIER in lookahead. */
+    Accept( IDENTIFIER );
+    ParseRestOfStatement( target ); 
 }
 
 PRIVATE void ParseWhileStatement(void) {
-    Accept(WHILE);
-    ParseBooleanExpression();
-    Accept(DO);
-    ParseBlock();
+    int Label1, Label2, L2BackPatchLoc;
+    Accept( WHILE );
+    Label1 = CurrentCodeAddress( );
+    L2BackPatchLoc = ParseBooleanExpression( );
+    Accept( DO );
+    ParseBlock( );
+    Emit( I_BR, Label1 );
+    Label2 = CurrentCodeAddress( );
+    BackPatch( L2BackPatchLoc, Label2 ); 
 }
 
-PRIVATE void ParseIfStatement(void) {
+PRIVATE void ParseIfStatement(void) { /* double check this */
+    int Label1, Label2, L1BackPatchLoc, L2BackPatchLoc;
     Accept(IF);
-    ParseBooleanExpression(); 
+    L1BackPatchLoc = ParseBooleanExpression();
     Accept(THEN);
     ParseBlock();
+    L2BackPatchLoc = CurrentCodeAddress();   
+    Emit(I_BR, 0);
     if(CurrentToken.code == ELSE) {
         Accept(ELSE);
+        Label1 = CurrentCodeAddress();
+        BackPatch(L1BackPatchLoc, Label1);
         ParseBlock();
     }
+    Label2 = CurrentCodeAddress();
+    BackPatch(L2BackPatchLoc, Label2);
 }
 
 PRIVATE void ParseReadStatement(void) {
     Accept(READ);
     ParseProcCallList();
+    _Emit(I_READ);
 }
 
 PRIVATE void ParseWriteStatement(void) {
     Accept(WRITE);
     ParseProcCallList();
+    _Emit(I_WRITE);
 
 }
 
-PRIVATE void ParseRestOfStatement(void) {
-    if(CurrentToken.code == LEFTPARENTHESIS) {
-        ParseProcCallList();
-    }
-    else if(CurrentToken.code == ASSIGNMENT) {
-        ParseAssignment();
-    }
-    /*do nothing for epsilon*/
-}
 
-PRIVATE void ParseBooleanExpression(void) {
-    ParseExpression();
-    ParseRelOp();
-    ParseExpression();
+PRIVATE void ParseRestOfStatement( SYMBOL *target )
+{
+    switch ( CurrentToken.code ) {
+        case LEFTPARENTHESIS:
+            /*ParseProcCallList( PROCEDURE, target );*/
+            ParseProcCallList();
+            break; 
+        case SEMICOLON:
+            if ( target != NULL ){
+                if ( target->type == STYPE_PROCEDURE ){
+                    Emit( I_CALL, target->address );
+                }
+                else {
+                    Error( "Error in fetching procedure", CurrentToken.pos );
+                    KillCodeGeneration();
+                }
+            }
+            break; 
+        case ASSIGNMENT:
+        default:
+            ParseAssignment();
+            if ( target != NULL ){
+                if ( target->type == STYPE_VARIABLE ){
+                    Emit( I_STOREA, target->address );
+                }
+                else {
+                    Error( "Error in fetching assignment", CurrentToken.pos );
+                    KillCodeGeneration();
+                }
+            }
+            break;
+    }
+} 
+
+PRIVATE int ParseBooleanExpression(void) {
+    int BackPatchAddr, RelOpInstruction;
+    ParseExpression( ); /* ⟨Expression⟩1 */
+    RelOpInstruction = ParseRelOp( );
+    ParseExpression( ); /* ⟨Expression⟩2 */
+    _Emit( I_SUB );
+    BackPatchAddr = CurrentCodeAddress( );
+    Emit( RelOpInstruction, 0 );
+    return BackPatchAddr; 
 }
 
 PRIVATE void ParseProcCallList(void) {
@@ -331,8 +380,8 @@ PRIVATE void ParseProcCallList(void) {
 }
 
 PRIVATE void ParseAssignment(void) {
-    Accept(ASSIGNMENT);
-    ParseExpression();
+    Accept( ASSIGNMENT );
+    ParseExpression(); 
 }
 
 PRIVATE void ParseExpression(void) {
@@ -348,26 +397,32 @@ PRIVATE void ParseExpression(void) {
     }
 }
 
-PRIVATE void ParseRelOp(void) {
+PRIVATE int ParseRelOp(void) {
+    int RelOpInstruction;
     switch(CurrentToken.code) {
         case EQUALITY:
         default:
+            RelOpInstruction = I_BZ; /* <----???? */
             Accept(EQUALITY);
             break;
         case LESSEQUAL:
+            RelOpInstruction = I_BG;
             Accept(LESSEQUAL);
             break;
         case GREATEREQUAL:
+            RelOpInstruction = I_BL;
             Accept(GREATEREQUAL);
             break;
         case LESS:
+            RelOpInstruction = I_BGZ;
             Accept(LESS);
             break;
         case GREATER:
+            RelOpInstruction = I_BLZ;
             Accept(GREATER);
             break;
-        /*default? don't know how to handle it. current one should handle error ok.*/
     }
+    return RelOpInstruction;
 }
 
 PRIVATE void ParseActualParameter(void) {
@@ -555,11 +610,10 @@ PRIVATE void Accept(int ExpectedToken )
 PRIVATE void MakeSymbolTableEntry( int symtype )
 {
 
- SYMBOL * oldsptr;
- SYMBOL * newsptr;
- int hashindex;
- char * cptr;
-
+    SYMBOL * oldsptr;
+    SYMBOL * newsptr;
+    int hashindex;
+    char * cptr;
 
     if ( CurrentToken.code == IDENTIFIER ) {
         if ( NULL == ( oldsptr = Probe( CurrentToken.s, &hashindex )) || oldsptr->scope < scope ) {
@@ -631,8 +685,8 @@ PRIVATE SYMBOL *LookupSymbol( void )
 PRIVATE int  OpenFiles( int argc, char *argv[] )
 {
 
-    if ( argc != 3 )  {
-        fprintf( stderr, "%s <inputfile> <listfile>\n", argv[0]);
+    if ( argc != 4 )  {
+        fprintf( stderr, "%s <inputfile> <listfile> <outputfile>\n", argv[0]);
         return 0;
     }
 
