@@ -92,7 +92,7 @@ PRIVATE void ParseReadStatement(void);
 PRIVATE void ParseWriteStatement(void);
 PRIVATE void ParseRestOfStatement( SYMBOL *target );
 PRIVATE int  ParseBooleanExpression(void);
-PRIVATE void ParseProcCallList(void);
+PRIVATE int ParseProcCallList(void);
 PRIVATE void ParseAssignment(void);
 PRIVATE void ParseExpression(void);
 PRIVATE int  ParseRelOp(void);
@@ -311,15 +311,19 @@ PRIVATE void ParseIfStatement(void) { /* double check this */
 }
 
 PRIVATE void ParseReadStatement(void) {
+    int x, counter;
     Accept(READ);
-    ParseProcCallList();
-    _Emit(I_READ);
+    counter = ParseProcCallList();
+    for (x=0; x<counter; x++)
+        _Emit(I_READ);
 }
 
 PRIVATE void ParseWriteStatement(void) {
+    int x, counter;
     Accept(WRITE);
-    ParseProcCallList();
-    _Emit(I_WRITE);
+    counter = ParseProcCallList();
+    for (x=0; x<counter; x++)
+        _Emit(I_WRITE); /*i think you have to emit a write instruction for every param*/
 
 }
 
@@ -369,14 +373,20 @@ PRIVATE int ParseBooleanExpression(void) {
     return BackPatchAddr; 
 }
 
-PRIVATE void ParseProcCallList(void) {
+PRIVATE int ParseProcCallList(void) {
+    int counter = 0;
     Accept(LEFTPARENTHESIS);
     ParseActualParameter();
     while(CurrentToken.code == COMMA) {
+        counter++;
         Accept(COMMA);
         ParseActualParameter();
     }
     Accept(RIGHTPARENTHESIS);
+    if(counter == 0)
+        return 0;
+    else
+        return ++counter;
 }
 
 PRIVATE void ParseAssignment(void) {
