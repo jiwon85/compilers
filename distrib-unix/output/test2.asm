@@ -1,13 +1,15 @@
-  0  Load  #27  
-  1  Store 1   
-  2  Load  #3   
-  3  Store 0   
-  4  Load  #3   
-  5  Store 1   
-  6  Load  1   
-  7  Load  #4   
-  8  Mult
-  9  Load  1   
- 10  Add
- 11  Store 0   
- 12  Call  -1  
+  0  Inc   2   
+  1  Load  #27  
+  2  Store 1   
+  3  Load  #3   
+  4  Store 0   
+  5  Load  #3   
+  6  Store 1   
+  7  Load  1   
+  8  Load  #4   
+  9  Mult
+ 10  Load  1   
+ 11  Add
+ 12  Store 0   
+ 13  Call  -1  
+ 14  Halt

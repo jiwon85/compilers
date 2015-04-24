@@ -1,17 +1,19 @@
-  0  Load  #4   
-  1  Store 0   
-  2  Load  0   
-  3  Load  #0   
-  4  Sub
-  5  Blz   17  
-  6  Load  0   
+  0  Inc   1   
+  1  Load  #4   
+  2  Store 0   
+  3  Load  0   
+  4  Load  #0   
+  5  Sub
+  6  Blz   18  
   7  Load  0   
-  8  Load  #1   
-  9  Sub
- 10  Write
- 11  Write
- 12  Load  0   
- 13  Load  #1   
- 14  Sub
- 15  Store 0   
- 16  Br    2   
+  8  Write
+  9  Load  0   
+ 10  Load  #1   
+ 11  Sub
+ 12  Write
+ 13  Load  0   
+ 14  Load  #1   
+ 15  Sub
+ 16  Store 0   
+ 17  Br    3   
+ 18  Halt

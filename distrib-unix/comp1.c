@@ -69,6 +69,9 @@ PRIVATE SET ProcDeclarationsFBS;
 PRIVATE int scope;
 PRIVATE int varaddress;
 
+PRIVATE int ReadFlag;
+PRIVATE SYMBOL * ReadStore;
+
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -79,7 +82,7 @@ PRIVATE int varaddress;
 PRIVATE int  OpenFiles(int argc, char *argv[]);
 
 PRIVATE void ParseProgram(void);
-PRIVATE void ParseDeclarations(void);
+PRIVATE int ParseDeclarations(void);
 PRIVATE void ParseProcDeclaration(void);
 PRIVATE void ParseBlock(void);
 PRIVATE void ParseParameterList(void);
@@ -92,7 +95,7 @@ PRIVATE void ParseReadStatement(void);
 PRIVATE void ParseWriteStatement(void);
 PRIVATE void ParseRestOfStatement( SYMBOL *target );
 PRIVATE int  ParseBooleanExpression(void);
-PRIVATE int ParseProcCallList(void);
+PRIVATE void ParseProcCallList(int instr);
 PRIVATE void ParseAssignment(void);
 PRIVATE void ParseExpression(void);
 PRIVATE int  ParseRelOp(void);
@@ -125,6 +128,9 @@ PRIVATE SYMBOL *LookupSymbol( void );
 PUBLIC int main ( int argc, char *argv[] )
 {
     if ( OpenFiles( argc, argv ) )  {
+
+        ReadFlag = 0;
+        ReadStore = NULL;
         
         InitCharProcessor( InputFile, ListFile);
         InitCodeGenerator(CodeFile);
@@ -166,12 +172,15 @@ PUBLIC int main ( int argc, char *argv[] )
 /*--------------------------------------------------------------------------*/
 
 PRIVATE void ParseProgram (void) {
+    int counter;
     Accept(PROGRAM);
     Accept(IDENTIFIER);
     Accept(SEMICOLON);
     Synchronise(&DeclarationsFS, &DeclarationsFBS);
     if(CurrentToken.code == VAR) {
-        ParseDeclarations();
+        counter = ParseDeclarations();
+        Emit(I_INC, counter);
+
     }
     Synchronise(&ProcDeclarationsFS, &ProcDeclarationsFBS);
     while (CurrentToken.code == PROCEDURE) {
@@ -181,11 +190,13 @@ PRIVATE void ParseProgram (void) {
     ParseBlock();
     Accept(ENDOFPROGRAM);     /* Token "." has name ENDOFPROGRAM          */
     Accept(ENDOFINPUT); 
+    _Emit(I_HALT);
 }
 
 
 
-PRIVATE void ParseDeclarations(void) {
+PRIVATE int ParseDeclarations(void) {
+    int counter = 1;
     Accept(VAR);
     MakeSymbolTableEntry(STYPE_VARIABLE);
     Accept(IDENTIFIER);
@@ -193,8 +204,10 @@ PRIVATE void ParseDeclarations(void) {
         Accept(COMMA);
         MakeSymbolTableEntry(STYPE_VARIABLE);
         Accept(IDENTIFIER);
+        counter++;
     }
     Accept(SEMICOLON);
+    return counter;
 }
 
 
@@ -292,38 +305,43 @@ PRIVATE void ParseWhileStatement(void) {
     BackPatch( L2BackPatchLoc, Label2 ); 
 }
 
-PRIVATE void ParseIfStatement(void) { /* double check this */
+PRIVATE void ParseIfStatement(void) { /* test with ELSE */
     int Label1, Label2, L1BackPatchLoc, L2BackPatchLoc;
     Accept(IF);
     L1BackPatchLoc = ParseBooleanExpression();
     Accept(THEN);
     ParseBlock();
-    L2BackPatchLoc = CurrentCodeAddress();   
+    
+    L2BackPatchLoc = CurrentCodeAddress(); 
     Emit(I_BR, 0);
+    
     if(CurrentToken.code == ELSE) {
         Accept(ELSE);
         Label1 = CurrentCodeAddress();
         BackPatch(L1BackPatchLoc, Label1);
         ParseBlock();
+        
+    }else{
+        Label1 = CurrentCodeAddress();
+        BackPatch(L1BackPatchLoc, Label1);
+
     }
     Label2 = CurrentCodeAddress();
     BackPatch(L2BackPatchLoc, Label2);
 }
 
 PRIVATE void ParseReadStatement(void) {
-    int x, counter;
     Accept(READ);
-    counter = ParseProcCallList();
-    for (x=0; x<counter; x++)
-        _Emit(I_READ);
+    ReadFlag = 1;
+    ParseProcCallList(I_READ);
+    ReadFlag = 0;
 }
 
 PRIVATE void ParseWriteStatement(void) {
-    int x, counter;
+    
     Accept(WRITE);
-    counter = ParseProcCallList();
-    for (x=0; x<counter; x++)
-        _Emit(I_WRITE); /*i think you have to emit a write instruction for every param*/
+    ParseProcCallList(I_WRITE);
+    /*i think you have to emit a write instruction for every param*/
 
 }
 
@@ -333,7 +351,7 @@ PRIVATE void ParseRestOfStatement( SYMBOL *target )
     switch ( CurrentToken.code ) {
         case LEFTPARENTHESIS:
             /*ParseProcCallList( PROCEDURE, target );*/
-            ParseProcCallList();
+            ParseProcCallList(I_CALL);
             break; 
         case SEMICOLON:
             if ( target != NULL ){
@@ -373,20 +391,26 @@ PRIVATE int ParseBooleanExpression(void) {
     return BackPatchAddr; 
 }
 
-PRIVATE int ParseProcCallList(void) {
-    int counter = 0;
+PRIVATE void ParseProcCallList(int instr) {
     Accept(LEFTPARENTHESIS);
     ParseActualParameter();
+    if(instr == I_READ || instr == I_WRITE)
+        _Emit(instr);
+    if(instr == I_READ && ReadStore != NULL && ReadFlag){
+        Emit(I_STOREA, ReadStore->address);
+        ReadStore = NULL;
+    }
     while(CurrentToken.code == COMMA) {
-        counter++;
         Accept(COMMA);
         ParseActualParameter();
+        if(instr == I_READ || instr == I_WRITE)
+            _Emit(instr);
+        if(instr == I_READ && ReadStore != NULL && ReadFlag){
+            Emit(I_STOREA, ReadStore->address);
+            ReadStore = NULL;
+        }
     }
     Accept(RIGHTPARENTHESIS);
-    if(counter == 0)
-        return 0;
-    else
-        return ++counter;
 }
 
 PRIVATE void ParseAssignment(void) {
@@ -488,8 +512,14 @@ PRIVATE void ParseSubTerm(void) {
         case IDENTIFIER:
         default:
             var = LookupSymbol();
+
             if ( var != NULL && var->type == STYPE_VARIABLE ){
-                Emit( I_LOADA, var->address );
+                fprintf(stderr, "i'm in IDENTIFIER %s\n", var->s);
+                
+                if(ReadFlag)
+                    ReadStore =  var;
+                else
+                    Emit( I_LOADA, var->address );
             }
             else{
                 Error( "Identifier not declared", CurrentToken.pos );
