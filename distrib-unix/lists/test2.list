@@ -8,5 +8,6 @@
   8 BEGIN
   9     y := 3;
  10     x := y * 4 + y;
- 11     p1;
- 12 END.
+ 11     WRITE(y, x);
+ 12     p1;
+ 13 END.
