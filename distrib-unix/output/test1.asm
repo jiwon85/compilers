@@ -1,9 +1,16 @@
-  0  Inc   2   
-  1  Load  0   
+  0  Br    9   
+  1  Inc   1   
   2  Load  #234 
-  3  Load  2   
+  3  Load  FP+1   
   4  Mult
   5  Add
-  6  Store 2   
-  7  Load  0   
-  8  Halt
+  6  Store FP+1   
+  7  Dec   1   
+  8  Ret
+  9  Inc   2   
+ 10  Load  0   
+ 11  Push  FP
+ 12  Bsf
+ 13  Call  1   
+ 14  Rsf
+ 15  Halt
