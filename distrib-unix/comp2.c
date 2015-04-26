@@ -50,7 +50,8 @@ PRIVATE TOKEN  CurrentToken;       /*  Parser lookahead token.  Updated by  */
                                    /*  routine Accept (below).  Must be     */
                                    /*  initialised before parser starts.    */
 
-PRIVATE SET StatementFS;
+
+PRIVATE SET StatementFS;            /*  Sets for parser error recovery.     */
 PRIVATE SET StatementFS_aug;
 PRIVATE SET StatementFBS;
 PRIVATE SET DeclarationsFS;
@@ -809,6 +810,7 @@ PRIVATE int ParseRelOp(void) {
     }
     return RelOpInstruction;
 }
+
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
