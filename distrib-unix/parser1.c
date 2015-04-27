@@ -146,7 +146,7 @@ PRIVATE void ParseProgram(void) {
 /*                                                                          */
 /*  ParseDeclarations implements:                                           */
 /*                                                                          */
-/*       <Program>     :==  “VAR” <Variable> { “,” <Variable> } “;”         */
+/*       <Declarations>     :==  “VAR” <Variable> { “,” <Variable> } “;”    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       1) Integer acting as boolean to differentiate between   */
@@ -175,7 +175,7 @@ PRIVATE void ParseDeclarations(void) {
 /*                                                                          */
 /*  ParseProcDeclarations implements:                                       */
 /*                                                                          */
-/*       <Program>  :== “PROCEDURE” <Identifier> [ <ParameterList> ] “;”    */
+/* <ProcDeclarations>  :== “PROCEDURE” <Identifier> [ <ParameterList> ] “;” */
 /*                    [ <Declarations> ] { <ProcDeclaration> } <Block> “;”  */
 /*                                                                          */
 /*                                                                          */
@@ -213,7 +213,7 @@ PRIVATE void ParseProcDeclaration(void) {
 /*                                                                          */
 /*  ParseBlock implements:                                                  */
 /*                                                                          */
-/*       <Program>  :==     “BEGIN” { <Statement> “;” } “END”               */
+/*       <Block>    :==     “BEGIN” { <Statement> “;” } “END”               */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -240,7 +240,7 @@ PRIVATE void ParseBlock(void){
 /*                                                                          */
 /*  ParseParameterList implements:                                          */
 /*                                                                          */
-/*    <Program> :== “(” <FormalParameter> { “,” <FormalParameter> } “)”     */
+/* <ParameterList> :== “(” <FormalParameter> { “,” <FormalParameter> } “)”  */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -268,7 +268,7 @@ PRIVATE void ParseParameterList(void) {
 /*                                                                          */
 /*  ParseFormalParameter implements:                                        */
 /*                                                                          */
-/*    <Program>     :==      [ “REF” ] <Variable>                           */
+/*    <FormalParameter>     :==      [ “REF” ] <Variable>                   */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -293,7 +293,7 @@ PRIVATE void ParseFormalParameter(void) {
 /*                                                                          */
 /*  ParseStatement implements:                                              */
 /*                                                                          */
-/*    <Program>  :== <SimpleStatement> | <WhileStatement> | <IfStatement> | */
+/*  <Statement>  :== <SimpleStatement> | <WhileStatement> | <IfStatement> | */
 /*                   <ReadStatement> | <WriteStatement>                     */
 /*                                                                          */
 /*                                                                          */
@@ -333,7 +333,7 @@ PRIVATE void ParseStatement(void) {
 /*                                                                          */
 /*  ParseSimpleStatement implements:                                        */
 /*                                                                          */
-/*    <Program>     :==      <Variable> <RestOfStatement>                   */
+/*    <SimpleStatement>     :==      <Variable> <RestOfStatement>           */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -356,7 +356,7 @@ PRIVATE void ParseSimpleStatement(void) {
 /*                                                                          */
 /*  ParseWhileStatement implements:                                         */
 /*                                                                          */
-/*    <Program>     :==      “WHILE” <BooleanExpression> “DO” <Block>       */
+/*  <WhileStatement>     :==      “WHILE” <BooleanExpression> “DO” <Block>  */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -381,7 +381,7 @@ PRIVATE void ParseWhileStatement(void) {
 /*                                                                          */
 /*  ParseIfStatement implements:                                            */
 /*                                                                          */
-/*  <Program> :== “IF” <BooleanExpression> “THEN” <Block> [“ELSE” <Block>}  */
+/*  <IfStatement> :== “IF”<BooleanExpression>“THEN”<Block>[“ELSE”<Block>}   */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -410,7 +410,7 @@ PRIVATE void ParseIfStatement(void) {
 /*                                                                          */
 /*  ParseReadStatement implements:                                          */
 /*                                                                          */
-/*    <Program>     :==     “READ” <ProcCallList>                           */
+/*    <ReadStatement>     :==     “READ” <ProcCallList>                     */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -433,7 +433,7 @@ PRIVATE void ParseReadStatement(void) {
 /*                                                                          */
 /*  ParseWriteStatement implements:                                         */
 /*                                                                          */
-/*    <Program>     :==     “WRITE” <ProcCallList>                          */
+/*    <WriteStatment>     :==     “WRITE” <ProcCallList>                    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -457,7 +457,7 @@ PRIVATE void ParseWriteStatement(void) {
 /*                                                                          */
 /*  ParseRestOfStatement implements:                                        */
 /*                                                                          */
-/*    <Program>     :==    <ProcCallList> | <Assignment> | ε                */
+/*    <RestOfStatement>     :==    <ProcCallList> | <Assignment> | ε        */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       Symbol pointer that is the result of LookupSymbol       */
@@ -484,7 +484,7 @@ PRIVATE void ParseRestOfStatement(void) {
 /*                                                                          */
 /*  ParseBooleanExpression implements:                                      */
 /*                                                                          */
-/*    <Program>     :==    <Expression> <RelOp> <Expression>                */
+/*    <BooleanExpression>  :==    <Expression> <RelOp> <Expression>         */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -509,7 +509,7 @@ PRIVATE void ParseBooleanExpression(void) {
 /*                                                                          */
 /*  ParseProcCallList implements:                                           */
 /*                                                                          */
-/*    <Program>  :== “(” <ActualParameter> { “,” <ActualParameter> } “)”    */
+/* <ProcCallList>  :== “(” <ActualParameter> { “,” <ActualParameter> } “)”  */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       The instruction to differentiate READ, WRITE, and       */
@@ -538,7 +538,7 @@ PRIVATE void ParseProcCallList(void) {
 /*                                                                          */
 /*  ParseAssignment implements:                                             */
 /*                                                                          */
-/*    <Program>     :==    “:=” <Expression>                                */
+/*    <Assignment>     :==    “:=” <Expression>                             */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -561,7 +561,7 @@ PRIVATE void ParseAssignment(void) {
 /*                                                                          */
 /*  ParseExpression implements:                                             */
 /*                                                                          */
-/*    <Program>     :==    <CompoundTerm> { <AddOp> <CompoundTerm> }        */
+/*    <Expression>     :==    <CompoundTerm> { <AddOp> <CompoundTerm> }     */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -587,7 +587,7 @@ PRIVATE void ParseExpression(void) {
 /*                                                                          */
 /*  ParseRelOp implements:                                                  */
 /*                                                                          */
-/*    <Program>     :==    “=” | “<=” | “>=” | “<” | “>”                    */
+/*    <RelOp>     :==    “=” | “<=” | “>=” | “<” | “>”                      */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -626,7 +626,7 @@ PRIVATE void ParseRelOp(void) {
 /*                                                                          */
 /*  ParseActualParameter implements:                                        */
 /*                                                                          */
-/*    <Program>     :==   <Variable> | <Expression>                         */
+/*    <ActualParameter>     :==   <Variable> | <Expression>                 */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -648,7 +648,7 @@ PRIVATE void ParseActualParameter(void) {
 /*                                                                          */
 /*  ParseCompoundTerm implements:                                           */
 /*                                                                          */
-/*    <Program>     :==   <Term> { <MultOp> <Term> }                        */
+/*    <CompoundTerm>     :==   <Term> { <MultOp> <Term> }                   */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -674,7 +674,7 @@ PRIVATE void ParseCompoundTerm(void) {
 /*                                                                          */
 /*  ParseAddOp implements:                                                  */
 /*                                                                          */
-/*    <Program>     :==    “+” | “−”                                        */
+/*    <AddOp>     :==    “+” | “−”                                          */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -701,7 +701,7 @@ PRIVATE void ParseAddOp(void) {
 /*                                                                          */
 /*  ParseMultOp implements:                                                 */
 /*                                                                          */
-/*    <Program>     :==    “∗” | “/”                                        */
+/*    <MultOp>     :==    “∗” | “/”                                         */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -728,7 +728,7 @@ PRIVATE void ParseMultOp(void) {
 /*                                                                          */
 /*  ParseTerm implements:                                                   */
 /*                                                                          */
-/*    <Program>     :==    [ “−” ] <SubTerm>                                */
+/*    <Term>     :==    [ “−” ] <SubTerm>                                   */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -753,7 +753,7 @@ PRIVATE void ParseTerm(void) {
 /*                                                                          */
 /*  ParseSubTerm implements:                                                */
 /*                                                                          */
-/*    <Program>     :==    <Variable> | <IntConst> | “(” <Expression> “)”   */
+/*    <SubTerm>     :==    <Variable> | <IntConst> | “(” <Expression> “)”   */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
